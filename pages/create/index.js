@@ -27,9 +27,7 @@ export default function Home() {
       body: JSON.stringify(post),
     });
 
-    const data = await response.json();
-
-    if (data.success) {
+    if (response.ok) {
       setMessage('Post created successfully!');
       setTitle('');
       setContent('');
