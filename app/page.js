@@ -41,7 +41,7 @@ export default function Home() {
 
   return (
     <div>
-      <h1>Create a New Post</h1>
+      <h1>Create a Nssssssew Post</h1>
       <form onSubmit={handleSubmit}>
         <div>
           <label>Title:</label>
