@@ -1,21 +1,51 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import "./home.css"; // Import CSS
+import { useRouter } from "next/navigation";
+import "./home.css";
 
 export default function Home() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [error, setError] = useState(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [author, setAuthor] = useState("");
   const [message, setMessage] = useState("");
 
-  // Fetch posts
+  // Check authentication on component mount
   useEffect(() => {
+    // Check if user is logged in
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      // Redirect to login if not authenticated
+      router.push('/login');
+      return;
+    }
+
+    // Parse user data
+    const parsedUser = JSON.parse(storedUser);
+    setUser(parsedUser);
+
+    // Fetch posts
     const fetchPosts = async () => {
       try {
-        const response = await fetch("/api/post");
+        const response = await fetch("/api/post", {
+          headers: {
+            'Authorization': `Bearer ${parsedUser.token}`
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Token expired or invalid
+            localStorage.removeItem('user');
+            router.push('/login');
+            return;
+          }
+          throw new Error("Failed to fetch posts");
+        }
+
         const data = await response.json();
 
         if (Array.isArray(data)) {
@@ -31,42 +61,71 @@ export default function Home() {
     };
 
     fetchPosts();
-  }, []);
+  }, [router]);
 
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!user) {
+      setMessage("Please log in to create a post");
+      return;
+    }
+
     const post = {
       title,
       content,
-      author,
+      author: user.username, // Use logged-in user's username
       createdAt: new Date(),
     };
 
-    const response = await fetch("/api/post", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(post),
-    });
+    try {
+      const response = await fetch("/api/post", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify(post),
+      });
 
-    if (response.ok) {
-      setMessage("Post created successfully!");
-      setTitle("");
-      setContent("");
-      setAuthor("");
-      const updatedPosts = await response.json();
-      setPosts([...posts, updatedPosts]);
-    } else {
-      setMessage("Failed to create post.");
+      if (response.ok) {
+        const newPost = await response.json();
+        setMessage("Post created successfully!");
+        setTitle("");
+        setContent("");
+        setPosts([...posts, newPost]);
+      } else {
+        const errorData = await response.json();
+        setMessage(errorData.error || "Failed to create post");
+      }
+    } catch (error) {
+      setMessage("Network error. Please try again.");
     }
   };
+
+  // Logout handler
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    router.push('/login');
+  };
+
+  // If not authenticated, show nothing
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="home-container">
       <div className="home-layout">
+        {/* Logout Button */}
+        <div className="logout-section">
+          <span>Welcome, {user.username}</span>
+          <button onClick={handleLogout} className="logout-button">
+            Logout
+          </button>
+        </div>
+
         {/* Create Post Section */}
         <div className="create-post-section">
           <div className="header">DeSwuCafe ☕</div>
@@ -87,16 +146,6 @@ export default function Home() {
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                required
-                className="form-input"
-              />
-            </div>
-            <div>
-              <label>Author:</label>
-              <input
-                type="text"
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
                 required
                 className="form-input"
               />
