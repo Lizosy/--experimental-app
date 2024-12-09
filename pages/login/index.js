@@ -1,6 +1,10 @@
+"use client";
+
 import React, { useState } from 'react';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
+// Assuming you have a CSS file for styling
 
 const LoginPage = () => {
   const router = useRouter();
@@ -60,7 +64,9 @@ const LoginPage = () => {
         if (response.ok) {
           toast.success('Login successful!');
           // Store user token or session info
-          localStorage.setItem('user', JSON.stringify(data.user));
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('user', JSON.stringify(data.user));
+          }
           
           // Redirect to dashboard or home page
           router.push('/');
@@ -112,8 +118,8 @@ const LoginPage = () => {
         </form>
         <div className="login-footer">
           <p>
-            Don't have an account? 
-            <a href="/register" className="register-link"> Register here</a>
+            Dont have an account? 
+            <Link href="/register" className="register-link"> Register here</Link>
           </p>
         </div>
       </div>
