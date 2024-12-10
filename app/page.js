@@ -40,6 +40,7 @@ export default function Home() {
           if (response.status === 401) {
             // Token expired or invalid
             localStorage.removeItem('user');
+            setUser(null);
             router.push('/login');
             return;
           }

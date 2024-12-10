@@ -3,12 +3,12 @@ import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
   const { username, email, password } = req.body;
 
-  // Validate input
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'All fields are required' });
   }

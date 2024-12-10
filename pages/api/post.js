@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
   // Get token from Authorization header
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers.authorization || '';
   
   if (req.method === 'GET') {
     // For GET request, token is optional but helpful
@@ -24,7 +24,10 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'No token provided' });
     }
 
-    const token = authHeader.split(' ')[1];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
 
     try {
       // Verify token
