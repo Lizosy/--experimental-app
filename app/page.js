@@ -1,52 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import "./home.css";
+import "./home.css"; // Import CSS
 
 export default function Home() {
-  const router = useRouter();
-  const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [error, setError] = useState(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [author, setAuthor] = useState("");
   const [message, setMessage] = useState("");
+  const [showCreatePost, setShowCreatePost] = useState(false);
 
-  // Check authentication on component mount
+  // Fetch posts
   useEffect(() => {
-    // Check if user is logged in
-    const storedUser = localStorage.getItem('user');
-    if (!storedUser) {
-      // Redirect to login if not authenticated
-      router.push('/login');
-      return;
-    }
-
-    // Parse user data
-    const parsedUser = JSON.parse(storedUser);
-    setUser(parsedUser);
-
-    // Fetch posts
     const fetchPosts = async () => {
       try {
-        const response = await fetch("/api/post", {
-          headers: {
-            'Authorization': `Bearer ${parsedUser.token}`
-          }
-        });
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            // Token expired or invalid
-            localStorage.removeItem('user');
-            setUser(null);
-            router.push('/login');
-            return;
-          }
-          throw new Error("Failed to fetch posts");
-        }
-
+        const response = await fetch("/api/post");
         const data = await response.json();
 
         if (Array.isArray(data)) {
@@ -62,104 +32,96 @@ export default function Home() {
     };
 
     fetchPosts();
-  }, [router]);
+  }, []);
 
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!user) {
-      setMessage("Please log in to create a post");
-      return;
-    }
-
     const post = {
       title,
       content,
-      author: user.username, // Use logged-in user's username
+      author,
       createdAt: new Date(),
     };
 
-    try {
-      const response = await fetch("/api/post", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          'Authorization': `Bearer ${user.token}`
-        },
-        body: JSON.stringify(post),
-      });
+    const response = await fetch("/api/post", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(post),
+    });
 
-      if (response.ok) {
-        const newPost = await response.json();
-        setMessage("Post created successfully!");
-        setTitle("");
-        setContent("");
-        setPosts([...posts, newPost]);
-      } else {
-        const errorData = await response.json();
-        setMessage(errorData.error || "Failed to create post");
-      }
-    } catch (error) {
-      setMessage("Network error. Please try again.");
+    if (response.ok) {
+      setMessage("Post created successfully!");
+      setTitle("");
+      setContent("");
+      setAuthor("");
+      const updatedPosts = await response.json();
+      setPosts([...posts, updatedPosts]);
+      setShowCreatePost(false); // Hide form after successful post
+    } else {
+      setMessage("Failed to create post.");
     }
   };
-
-  // Logout handler
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    router.push('/login');
-  };
-
-  // If not authenticated, show nothing
-  if (!user) {
-    return null;
-  }
 
   return (
     <div className="home-container">
       <div className="home-layout">
-        {/* Logout Button */}
-        <div className="logout-section">
-          <span>Welcome, {user.username}</span>
-          <button onClick={handleLogout} className="logout-button">
-            Logout
-          </button>
-        </div>
+        {/* Create Post Button */}
+        <button 
+          className="create-post-button"
+          onClick={() => setShowCreatePost(!showCreatePost)}
+        >
+          {showCreatePost ? "Cancel" : "Create Post"}
+        </button>
 
-        {/* Create Post Section */}
-        <div className="create-post-section">
-          <div className="header">DeSwuCafe ☕</div>
-          <h1>Create a New Post</h1>
-          <form onSubmit={handleSubmit}>
-            <div>
-              <label>Title:</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                className="form-input"
-              />
-            </div>
-            <div>
-              <label>Content:</label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                required
-                className="form-input"
-              />
-            </div>
-            <button type="submit" className="submit-button">
-              Create Post
-            </button>
-          </form>
-          {message && <p className="message">{message}</p>}
-        </div>
+        {/* Conditionally Rendered Create Post Section */}
+        {showCreatePost && (
+          <div className="create-post-section">
+            <div className="header">DeSwuCafe ☕</div>
+            <h1>Create a New Post</h1>
+            <form onSubmit={handleSubmit}>
+              <div>
+                <label>Title:</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                  className="form-input"
+                />
+              </div>
+              <div>
+                <label>Content:</label>
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  required
+                  className="form-input"
+                />
+              </div>
+              <div>
+                <label>Author:</label>
+                <input
+                  type="text"
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
+                  required
+                  className="form-input"
+                />
+              </div>
+              <button type="submit" className="submit-button">
+                Create Post
+              </button>
+            </form>
+            {message && <p className="message">{message}</p>}
+          </div>
+        )}
 
         {/* Posts List Section */}
-        <div className="posts-list-section">
+        <div className={`posts-list-section ${showCreatePost ? 'shifted' : ''}`}>
           <h1>Posts</h1>
           {error ? (
             <p className="error">Error: {error}</p>

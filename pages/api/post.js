@@ -1,17 +1,13 @@
 import clientPromise from '@lib/mongo/client';
-import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
-  // Get token from Authorization header
-  const authHeader = req.headers.authorization || '';
-  
-  if (req.method === 'GET') {
-    // For GET request, token is optional but helpful
-    try {
-      const client = await clientPromise;
-      const db = client.db('maybe');
-      const postsCollection = db.collection('posts');
+  const client = await clientPromise;
+  const db = client.db('maybe'); // Replace 'maybe' with your actual database name
+  const postsCollection = db.collection('posts');
 
+  if (req.method === 'GET') {
+    // Handle GET request: Fetch all posts
+    try {
       const posts = await postsCollection.find({}).toArray();
       return res.status(200).json(posts);
     } catch (error) {
@@ -19,55 +15,23 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to fetch posts!' });
     }
   } else if (req.method === 'POST') {
-    // For POST request, authentication is required
-    if (!authHeader) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
+    // Handle POST request: Create a new post
+    const { title, content, author } = req.body;
 
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
+    if (!title || !content || !author) {
+      return res.status(400).json({ error: 'All fields are required!' });
     }
 
     try {
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      const client = await clientPromise;
-      const db = client.db('maybe');
-      const postsCollection = db.collection('posts');
-
-      // Extract post data
-      const { title, content, author } = req.body;
-
-      if (!title || !content || !author) {
-        return res.status(400).json({ error: 'All fields are required!' });
-      }
-
-      // Create new post with additional metadata
-      const newPost = { 
-        title, 
-        content, 
-        author, 
-        userId: decoded.id, // Add user ID who created the post
-        createdAt: new Date(),
-        userEmail: decoded.email // Optional: add user email if needed
-      };
-
+      const newPost = { title, content, author, createdAt: new Date() };
       const result = await postsCollection.insertOne(newPost);
 
-      // Retrieve the inserted document
+      // Retrieve the inserted document (MongoDB v4+ compatibility)
       const insertedPost = await postsCollection.findOne({ _id: result.insertedId });
 
       return res.status(201).json({ success: true, post: insertedPost });
     } catch (error) {
-      if (error.name === 'JsonWebTokenError') {
-        return res.status(401).json({ error: 'Invalid token' });
-      }
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({ error: 'Token expired' });
-      }
-      console.error('Post creation error:', error);
+      console.error('Error creating post:', error);
       return res.status(500).json({ error: 'Failed to create post!' });
     }
   } else {
